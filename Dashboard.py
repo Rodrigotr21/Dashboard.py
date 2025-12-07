@@ -13,6 +13,7 @@ ACTIVOS_FEB_24 = pd.read_csv("activos_feb_24.csv")
 # -------------------------------
 # 2. Procesamiento de datos
 # -------------------------------
+# Convertir fechas
 ACTIVOS_FEB_24["FECHA DE NACIMIENTO (DD/MM/YYYY)"] = pd.to_datetime(
     ACTIVOS_FEB_24["FECHA DE NACIMIENTO (DD/MM/YYYY)"], format="%d/%m/%Y", errors="coerce"
 )
@@ -20,19 +21,26 @@ ACTIVOS_FEB_24["FECHA DE INGRESO (DD/MM/YYYY)"] = pd.to_datetime(
     ACTIVOS_FEB_24["FECHA DE INGRESO (DD/MM/YYYY)"], format="%d/%m/%Y", errors="coerce"
 )
 
+# Calcular edad
 hoy = date.today()
 ACTIVOS_FEB_24["EDAD"] = ACTIVOS_FEB_24["FECHA DE NACIMIENTO (DD/MM/YYYY)"].dt.year.apply(
     lambda x: hoy.year - x if pd.notnull(x) else None
 )
 
+# Asegurar que EDAD sea numérica
+ACTIVOS_FEB_24["EDAD"] = pd.to_numeric(ACTIVOS_FEB_24["EDAD"], errors="coerce")
+
+# Crear rango de edad, manejando nulos
 ACTIVOS_FEB_24["RANGO_EDAD"] = pd.cut(
-    ACTIVOS_FEB_24["EDAD"],
+    ACTIVOS_FEB_24["EDAD"].fillna(-1),   # valores nulos se marcan como -1
     bins=[18, 25, 35, 45, 55, 65, 100],
     labels=["18-25", "26-35", "36-45", "46-55", "56-65", "65+"],
     right=True
 )
+# Reemplazar -1 por NaN en RANGO_EDAD
+ACTIVOS_FEB_24.loc[ACTIVOS_FEB_24["EDAD"].isna(), "RANGO_EDAD"] = pd.NA
 
-# Convertir año a entero para evitar el ".0"
+# Año y mes de ingreso
 ACTIVOS_FEB_24["AÑO"] = ACTIVOS_FEB_24["FECHA DE INGRESO (DD/MM/YYYY)"].dt.year.astype("Int64")
 ACTIVOS_FEB_24["MES_NUM"] = ACTIVOS_FEB_24["FECHA DE INGRESO (DD/MM/YYYY)"].dt.month
 meses_es = {
