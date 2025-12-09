@@ -35,20 +35,58 @@ with st.expander("🔍 Ver estructura de datos completos", expanded=True):
     col1, col2 = st.columns(2)
     with col1:
         st.write("**Primeras 10 filas:**")
-        st.dataframe(ACTIVOS_FEB_24.head(10))
+        # Crear copia para mostrar sin columna sensible
+        df_mostrar = ACTIVOS_FEB_24.copy()
+        # Definir posibles nombres de columna sensible
+        columnas_sensibles = [
+            'DOCUMENTO IDENTIDAD / CEDULA / RUT',
+            'DOCUMENTO IDENTIDAD',
+            'CEDULA',
+            'RUT',
+            'DNI',
+            'IDENTIFICACION'
+        ]
+        # Eliminar columna sensible si existe
+        for col in columnas_sensibles:
+            if col in df_mostrar.columns:
+                df_mostrar = df_mostrar.drop(columns=[col])
+                st.info(f"⚠️ Columna sensible '{col}' oculta por seguridad")
+                break
+        
+        st.dataframe(df_mostrar.head(10))
     with col2:
         st.write("**Información del dataset:**")
         st.write(f"- Total registros: {len(ACTIVOS_FEB_24)}")
         st.write(f"- Total columnas: {len(ACTIVOS_FEB_24.columns)}")
         st.write("**Columnas disponibles:**")
         for col in ACTIVOS_FEB_24.columns:
-            st.write(f"- {col}")
+            # Marcar columna sensible
+            es_sensible = any(sensible.lower() in col.lower() for sensible in ['documento', 'cedula', 'rut', 'dni', 'identidad'])
+            if es_sensible:
+                st.write(f"- ❌ {col} **(OCULTO POR SEGURIDAD)**")
+            else:
+                st.write(f"- {col}")
 
 # -------------------------------
 # 2. Procesamiento de datos
 # -------------------------------
 # Hacer una copia para no modificar el original
 df_processed = ACTIVOS_FEB_24.copy()
+
+# Eliminar columna sensible del dataframe procesado
+columnas_sensibles = [
+    'DOCUMENTO IDENTIDAD / CEDULA / RUT',
+    'DOCUMENTO IDENTIDAD',
+    'CEDULA',
+    'RUT',
+    'DNI',
+    'IDENTIFICACION'
+]
+
+for col in columnas_sensibles:
+    if col in df_processed.columns:
+        df_processed = df_processed.drop(columns=[col])
+        st.sidebar.warning(f"🔒 Columna '{col}' eliminada por seguridad")
 
 # Lista para almacenar columnas procesadas
 columnas_procesadas = []
@@ -508,7 +546,7 @@ with tab3:
             st.info("No se pudieron procesar las fechas de cumpleaños")
 
 # -------------------------------
-# 7. MOSTRAR DATOS FILTRADOS
+# 7. MOSTRAR DATOS FILTRADOS (VERSIÓN SEGURA)
 # -------------------------------
 with st.expander("📋 Ver datos procesados", expanded=False):
     st.write(f"**Total de registros mostrados:** {len(df_para_graficos)}")
@@ -521,11 +559,20 @@ with st.expander("📋 Ver datos procesados", expanded=False):
     )
     
     if vista == "Vista general":
-        # Mostrar columnas principales
+        # Mostrar columnas principales (excluyendo sensibles)
         columnas_principales = []
+        columnas_excluir = [
+            'DOCUMENTO IDENTIDAD / CEDULA / RUT',
+            'DOCUMENTO IDENTIDAD',
+            'CEDULA',
+            'RUT',
+            'DNI',
+            'IDENTIFICACION'
+        ]
+        
         for col in ["UNIDAD DE NEGOCIO", "GENERO (F/M)", "POSICION / PUESTO / CARGO", 
                    "pais", "EDAD", "RANGO_EDAD", "AÑO_INGRESO"]:
-            if col in df_para_graficos.columns:
+            if col in df_para_graficos.columns and col not in columnas_excluir:
                 columnas_principales.append(col)
         
         if columnas_principales:
@@ -534,13 +581,43 @@ with st.expander("📋 Ver datos procesados", expanded=False):
             st.dataframe(df_para_graficos.head(50))
     
     elif vista == "Ver todas las columnas":
-        st.dataframe(df_para_graficos.head(30))
+        # Crear copia para mostrar sin columna sensible
+        df_mostrar_todas = df_para_graficos.copy()
+        
+        # Lista de posibles nombres de columnas sensibles
+        columnas_sensibles = [
+            'DOCUMENTO IDENTIDAD / CEDULA / RUT',
+            'DOCUMENTO IDENTIDAD',
+            'CEDULA',
+            'RUT',
+            'DNI',
+            'IDENTIFICACION',
+            'DOCUMENTO',
+            'IDENTIDAD'
+        ]
+        
+        # Verificar si hay alguna columna sensible
+        columnas_encontradas = []
+        for col_sensible in columnas_sensibles:
+            for col_df in df_mostrar_todas.columns:
+                if col_sensible.lower() in str(col_df).lower():
+                    columnas_encontradas.append(col_df)
+        
+        # Eliminar columnas sensibles
+        if columnas_encontradas:
+            df_mostrar_todas = df_mostrar_todas.drop(columns=columnas_encontradas)
+            st.warning(f"🔒 **PROTECCIÓN DE DATOS:** Se han ocultado {len(columnas_encontradas)} columnas sensibles")
+            for col in columnas_encontradas:
+                st.info(f"⚠️ Columna '{col}' oculta por seguridad")
+        
+        st.dataframe(df_mostrar_todas.head(30))
     
     else:  # Estadísticas básicas
         col1, col2 = st.columns(2)
         with col1:
             st.write("**Conteos por categoría:**")
-            for columna in ["UNIDAD DE NEGOCIO", "GENERO (F/M)", "pais"]:
+            columnas_estadisticas = ["UNIDAD DE NEGOCIO", "GENERO (F/M)", "pais"]
+            for columna in columnas_estadisticas:
                 if columna in df_para_graficos.columns:
                     conteo = df_para_graficos[columna].value_counts().head(10)
                     st.write(f"**{columna}:**")
@@ -550,19 +627,46 @@ with st.expander("📋 Ver datos procesados", expanded=False):
         with col2:
             st.write("**Estadísticas numéricas:**")
             if "EDAD" in df_para_graficos.columns:
-                st.write(f"**Edad:**")
+                st.write(f"**Edad (datos anonimizados):**")
                 st.write(f"  Mínima: {df_para_graficos['EDAD'].min():.0f}")
                 st.write(f"  Máxima: {df_para_graficos['EDAD'].max():.0f}")
                 st.write(f"  Promedio: {df_para_graficos['EDAD'].mean():.1f}")
                 st.write(f"  Mediana: {df_para_graficos['EDAD'].median():.1f}")
     
-    # Botón para descargar
-    csv = df_para_graficos.to_csv(index=False).encode('utf-8')
+    # Botón para descargar (sin datos sensibles)
+    st.markdown("---")
+    st.write("**📥 Descargar datos (sin información sensible):**")
+    
+    # Crear dataframe seguro para descarga
+    df_descargar = df_para_graficos.copy()
+    
+    # Eliminar columnas sensibles antes de descargar
+    columnas_sensibles_descarga = [
+        'DOCUMENTO IDENTIDAD / CEDULA / RUT',
+        'DOCUMENTO IDENTIDAD',
+        'CEDULA',
+        'RUT',
+        'DNI',
+        'IDENTIFICACION'
+    ]
+    
+    columnas_eliminadas = []
+    for col in columnas_sensibles_descarga:
+        for col_df in df_descargar.columns:
+            if col.lower() in str(col_df).lower():
+                df_descargar = df_descargar.drop(columns=[col_df])
+                columnas_eliminadas.append(col_df)
+    
+    if columnas_eliminadas:
+        st.info(f"✅ Para descarga: Se han eliminado {len(columnas_eliminadas)} columnas sensibles")
+    
+    csv = df_descargar.to_csv(index=False).encode('utf-8')
     st.download_button(
-        label="📥 Descargar datos como CSV",
+        label="Descargar datos como CSV (seguro)",
         data=csv,
-        file_name="datos_rostadina.csv",
+        file_name="datos_rostadina_seguro.csv",
         mime="text/csv",
+        help="Archivo CSV sin información sensible como documentos de identidad"
     )
 
 # -------------------------------
@@ -572,4 +676,7 @@ st.markdown("---")
 st.markdown("### 📊 Dashboard People Analytics")
 st.markdown("**ROSTADINA EIRL** - Reporte de Recursos Humanos")
 st.markdown("*Datos actualizados: Febrero 2024*")
-st.caption("Desarrollado con Streamlit | © 2024 ROSTADINA EIRL. Todos los derechos reservados.")
+st.caption("""
+🔒 **Protección de datos activada:** La información sensible como documentos de identidad ha sido ocultada para proteger la privacidad.
+""")
+st.caption("Desarrollado con Streamlit | © 2025 ROSTADINA EIRL. Todos los derechos reservados.")
